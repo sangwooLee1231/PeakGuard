@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.sku.member.mapper.StudentMapper">
+
+    <select id="findByStudentNumber" resultType="com.sku.member.vo.Student">
+        SELECT
+            STUDENT_ID          AS id,
+            STUDENT_NUMBER      AS studentNumber,
+            STUDENT_PASSWORD    AS password,
+            STUDENT_NAME        AS name,
+            STUDENT_DEPARTMENT  AS department,
+            STUDENT_GRADE       AS grade,
+            STUDENT_ROLE        AS role
+        FROM Student
+        WHERE STUDENT_NUMBER = #{studentNumber}
+    </select>
+
+<!--    <insert id="save" parameterType="com.sku.member.vo.Student" useGeneratedKeys="true" keyProperty="id">-->
+<!--        INSERT INTO Student (-->
+<!--            STUDENT_NUMBER,-->
+<!--            STUDENT_PASSWORD,-->
+<!--            STUDENT_NAME,-->
+<!--            STUDENT_DEPARTMENT,-->
+<!--            STUDENT_GRADE,-->
+<!--            STUDENT_ROLE-->
+<!--        ) VALUES (-->
+<!--                     #{studentNumber},-->
+<!--                     #{password},-->
+<!--                     #{name},-->
+<!--                     #{department},-->
+<!--                     #{grade},-->
+<!--                     #{role}-->
+<!--                 )-->
+<!--    </insert>-->
+
+</mapper>

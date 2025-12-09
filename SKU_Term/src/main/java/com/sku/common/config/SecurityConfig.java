@@ -5,6 +5,8 @@ import com.sku.common.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -34,14 +36,24 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
                         // 로그인, 회원가입 관련 API는 누구나 접근 가능
-                        .requestMatchers("/api/auth/**", "/api/public/**").permitAll()
-                        // 그 외 모든 요청은 인증 필요
+                        .requestMatchers("/login", "/api/auth/**", "/css/**", "/js/**").permitAll() // 로그인 관련은 허용                        // 그 외 모든 요청은 인증 필요
                         .anyRequest().authenticated()
+                )
+
+                // 인증 안 된 사용자가 들어오면 로그인 페이지로 보냄
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.sendRedirect("/login");
+                        })
                 )
 
                 // JWT 필터 등록
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
+        return authenticationConfiguration.getAuthenticationManager();
     }
 }
