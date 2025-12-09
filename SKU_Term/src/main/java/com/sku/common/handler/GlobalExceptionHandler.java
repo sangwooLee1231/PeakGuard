@@ -1,8 +1,8 @@
 package com.sku.common.handler;
-
 import com.sku.common.dto.ErrorResponse;
 import com.sku.common.exception.CustomException;
 import com.sku.common.util.ErrorCode;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,63 +16,81 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 public class GlobalExceptionHandler {
 
     /**
-     * javax.validation.Valid or @Validated 으로 binding error 발생시 발생한다.
-     * HttpMessageConverter 에서 등록한 HttpMessageConverter binding 못할경우 발생
-     * 주로 @RequestBody, @RequestPart 어노테이션에서 발생
+     * @Valid / @Validated 가 붙은 객체 바인딩 실패 시 발생 (@RequestBody 등)
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    protected ResponseEntity<ErrorResponse> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
+    protected ResponseEntity<ErrorResponse> handleMethodArgumentNotValidException(
+            MethodArgumentNotValidException e,
+            HttpServletRequest request
+    ) {
         log.error("handleMethodArgumentNotValidException", e);
-        final ErrorResponse response = ErrorResponse.of(ErrorCode.INVALID_INPUT_VALUE, e.getBindingResult());
+
+        // 첫 번째 필드 에러만 메시지로 사용 (필요하면 더 자세히 바꿔도 됨)
+        String message = e.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .findFirst()
+                .map(error -> error.getField() + " : " + error.getDefaultMessage())
+                .orElse(ErrorCode.INVALID_INPUT_VALUE.getMsg());
+
+        ErrorResponse response =
+                ErrorResponse.of(ErrorCode.INVALID_INPUT_VALUE, request.getRequestURI(), message);
+
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
     /**
-     * @ModelAttribut 으로 binding error 발생시 BindException 발생한다.
-     * ref https://docs.spring.io/spring/docs/current/spring-framework-reference/web.html#mvc-ann-modelattrib-method-args
-     */
-//    @ExceptionHandler(BindException.class)
-//    protected ResponseEntity<ErrorResponse> handleBindException(BindException e) {
-//        log.error("handleBindException", e);
-//        final ErrorResponse response = ErrorResponse.of(ErrorCode.INVALID_INPUT_VALUE, e.getBindingResult());
-//        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
-//    }
-
-    /**
-     * enum type 일치하지 않아 binding 못할 경우 발생
-     * 주로 @RequestParam enum으로 binding 못했을 경우 발생
+     * @RequestParam, @PathVariable 등에서 타입이 맞지 않을 때 발생
+     * (예: enum 파라미터에 이상한 값이 들어온 경우)
      */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    protected ResponseEntity<ErrorResponse> handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException e) {
+    protected ResponseEntity<ErrorResponse> handleMethodArgumentTypeMismatchException(
+            MethodArgumentTypeMismatchException e,
+            HttpServletRequest request
+    ) {
         log.error("handleMethodArgumentTypeMismatchException", e);
-        final ErrorResponse response = ErrorResponse.of(ErrorCode.INVALID_TYPE_VALUE);
+
+        ErrorResponse response =
+                ErrorResponse.of(ErrorCode.INVALID_TYPE_VALUE, request.getRequestURI());
+
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
-
     /**
-     * Authentication 객체가 필요한 권한을 보유하지 않은 경우 발생합
+     * 비즈니스 로직에서 직접 던지는 CustomException 처리
      */
-//    @ExceptionHandler(AccessDeniedException.class)
-//    protected ResponseEntity<ErrorResponse> handleAccessDeniedException(AccessDeniedException e) {
-//        log.error("handleAccessDeniedException", e);
-//        final ErrorResponse response = ErrorResponse.of(ErrorCode.HANDLE_ACCESS_DENIED);
-//        return new ResponseEntity<>(response, HttpStatus.valueOf(ErrorCode.HANDLE_ACCESS_DENIED.getStatus()));
-//    }
-
     @ExceptionHandler(CustomException.class)
-    protected ResponseEntity<ErrorResponse> handleBusinessException(final CustomException e) {
-        log.error("handleEntityNotFoundException", e);
-        final ErrorCode errorCode = e.getErrorCode();
-        final ErrorResponse response = ErrorResponse.of(errorCode);
-        return new ResponseEntity<>(response, HttpStatus.valueOf(String.valueOf(errorCode.getStatus())));
+    protected ResponseEntity<ErrorResponse> handleBusinessException(
+            CustomException e,
+            HttpServletRequest request
+    ) {
+        log.error("handleBusinessException", e);
+
+        ErrorCode errorCode = e.getErrorCode();
+
+        // e.getMessage() 로 상세 메시지를 덮어쓰고 싶을 때
+        ErrorResponse response =
+                ErrorResponse.of(errorCode, request.getRequestURI(), e.getMessage());
+
+        return new ResponseEntity<>(
+                response,
+                HttpStatus.valueOf(errorCode.getStatus())
+        );
     }
 
-
+    /**
+     * 그 밖의 예상하지 못한 모든 예외 처리
+     */
     @ExceptionHandler(Exception.class)
-    protected ResponseEntity<ErrorResponse> handleException(Exception e) {
-        log.error("handleEntityNotFoundException", e);
-        final ErrorResponse response = ErrorResponse.of(ErrorCode.INTERNAL_SERVER_ERROR);
+    protected ResponseEntity<ErrorResponse> handleException(
+            Exception e,
+            HttpServletRequest request
+    ) {
+        log.error("handleException", e);
+
+        ErrorResponse response =
+                ErrorResponse.of(ErrorCode.INTERNAL_SERVER_ERROR, request.getRequestURI());
+
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }
