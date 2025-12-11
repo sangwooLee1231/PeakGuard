@@ -21,19 +21,12 @@ public class JwtAuthenticationFilter extends GenericFilterBean {
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
-        // 1쿠키에서 Access Token 추출로 변경
         String token = resolveToken((HttpServletRequest) request);
 
-        // 2토큰 유효성 검사
         if (token != null && jwtTokenProvider.validateToken(token)) {
             Authentication authentication = jwtTokenProvider.getAuthentication(token);
             SecurityContextHolder.getContext().setAuthentication(authentication);
         }
-
-        // TODO: 만약 AccessToken이 만료되었다면, RefreshToken을 확인하고 재발급하는 로직은
-        // 보통 클라이언트가 401을 받고 재요청하거나, 이곳에서 예외처리를 통해 처리합니다.
-        // PPT 흐름상 여기서는 '유효한 토큰이 있으면 인증 처리'만 담당합니다.
-
         chain.doFilter(request, response);
     }
 

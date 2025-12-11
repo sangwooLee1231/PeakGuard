@@ -7,5 +7,5 @@ import org.apache.ibatis.annotations.Mapper;
 public interface StudentMapper {
     Student findByStudentNumber(String studentNumber);
 
-//    void save(Student student);
+    int insertStudent(Student student);
 }

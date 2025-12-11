@@ -4,13 +4,12 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 
 /**
- * HTTP 응답에 상태 코드, 메시지, 데이터를 담는 공통 DTO
+ * HTTP 응답에 상태 코드와 메시지만 담는 DTO
  */
 @Data
 @AllArgsConstructor
-public class ResponseDto<T> {
+public class SimpleResponseDto {
 
     private int status;     // HTTP 상태 코드
     private String message; // 응답 메시지
-    private T data;         // 응답 데이터 (없으면 null)
 }

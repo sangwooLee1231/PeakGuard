@@ -1,6 +1,8 @@
 package com.sku.member.service.serviceImpl;
 
+import com.sku.common.exception.CustomException;
 import com.sku.common.jwt.JwtTokenProvider;
+import com.sku.common.util.ErrorCode;
 import com.sku.member.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,6 +49,50 @@ public class AuthServiceImpl implements AuthService {
         Map<String, String> tokens = new HashMap<>();
         tokens.put("accessToken", accessToken);
         tokens.put("refreshToken", refreshToken);
+        return tokens;
+    }
+
+    @Override
+    public Map<String, String> reissue(String refreshToken) {
+
+        // RefreshToken null 체크
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new CustomException(ErrorCode.LOGIN_REQUIRED);
+        }
+
+        // RefreshToken 유효성 검증 (서명/만료)
+        if (!jwtTokenProvider.validateToken(refreshToken)) {
+            throw new CustomException(ErrorCode.SESSION_EXPIRED);
+        }
+
+        // RefreshToken으로부터 사용자 정보 추출
+        Authentication authentication = jwtTokenProvider.getAuthentication(refreshToken);
+        String studentNumber = authentication.getName();
+
+        // Redis에 저장된 RefreshToken 조회
+        String storedRefreshToken = redisTemplate.opsForValue().get(studentNumber);
+
+        // Redis에 없거나, 값이 다르면 유효하지 않은(혹은 탈취된) 토큰
+        if (storedRefreshToken == null || !storedRefreshToken.equals(refreshToken)) {
+            throw new CustomException(ErrorCode.SESSION_EXPIRED);
+        }
+
+        // 새로운 Access/Refresh 토큰 발급 (Refresh Rotation)
+        String newAccessToken = jwtTokenProvider.createAccessToken(authentication);
+        String newRefreshToken = jwtTokenProvider.createRefreshToken(authentication);
+
+        // Redis 갱신
+        redisTemplate.opsForValue().set(
+                studentNumber,
+                newRefreshToken,
+                6,
+                TimeUnit.HOURS
+        );
+
+        // 반환
+        Map<String, String> tokens = new HashMap<>();
+        tokens.put("accessToken", newAccessToken);
+        tokens.put("refreshToken", newRefreshToken);
         return tokens;
     }
 }

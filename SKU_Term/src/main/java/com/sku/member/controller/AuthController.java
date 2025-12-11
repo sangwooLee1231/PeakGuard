@@ -1,11 +1,20 @@
 package com.sku.member.controller;
 
+import com.sku.common.dto.ResponseDto;
+import com.sku.common.exception.CustomException;
+import com.sku.common.util.ErrorCode;
 import com.sku.member.dto.MemberLoginRequestDto;
+import com.sku.member.dto.MemberSignUpRequestDto;
 import com.sku.member.service.AuthService;
+import com.sku.member.service.MemberService;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -22,13 +31,28 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
+    private final MemberService memberService;
+
+    @PostMapping("/signup")
+    public ResponseEntity<ResponseDto<Map<String, Object>>> signUp(
+            @Valid @RequestBody MemberSignUpRequestDto requestDto
+    ) {
+        memberService.signUp(requestDto);
+        Long studentId = memberService.signUp(requestDto);
+
+
+        return ResponseEntity.ok(
+                new ResponseDto<>(
+                        HttpStatus.OK.value(),
+                        "회원가입 성공", Map.of("student_id", studentId, "student_number", requestDto.getStudentNumber())));
+    }
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody MemberLoginRequestDto request, HttpServletResponse response) {
-        // 1. 서비스 로그인 로직 수행
-        Map<String, String> tokens = authService.login(request.getEmail(), request.getPassword());
+        // 서비스 로그인 로직 수행
+        Map<String, String> tokens = authService.login(request.getStudentNumber(), request.getPassword());
 
-        // 2. Access Token 쿠키 생성 (1시간)
+        // Access Token 쿠키 생성 (1시간)
         ResponseCookie accessCookie = ResponseCookie.from("accessToken", tokens.get("accessToken"))
                 .httpOnly(true)          // JavaScript에서 접근 불가 (XSS 방지)
                 .secure(false)           // HTTP에서도 전송 가능 (HTTPS 적용 시 true로 변경 필요)
@@ -37,7 +61,7 @@ public class AuthController {
                 .sameSite("Strict")      // CSRF 방지 강화
                 .build();
 
-        // 3. Refresh Token 쿠키 생성 (6시간)
+        // Refresh Token 쿠키 생성 (6시간)
         ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", tokens.get("refreshToken"))
                 .httpOnly(true)
                 .secure(false)
@@ -46,10 +70,68 @@ public class AuthController {
                 .sameSite("Strict")
                 .build();
 
-        // 4. 응답 헤더에 쿠키 추가
+        // 응답 헤더에 쿠키 추가
         response.addHeader(HttpHeaders.SET_COOKIE, accessCookie.toString());
         response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
 
-        return ResponseEntity.ok("로그인 성공");
+        return ResponseEntity.ok(
+                new ResponseDto<>(
+                        HttpStatus.OK.value(),
+                        "로그인에 성공했습니다.",
+                        Map.of("accessToken", tokens.get("accessToken"))
+                )
+        );
     }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refreshToken(
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) {
+        // 쿠키에서 refreshToken 추출
+        String refreshToken = null;
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if ("refreshToken".equals(cookie.getName())) {
+                    refreshToken = cookie.getValue();
+                    break;
+                }
+            }
+        }
+
+        if (refreshToken == null) {
+            throw new CustomException(ErrorCode.LOGIN_REQUIRED);
+        }
+
+        // 서비스에 재발급 요청
+        Map<String, String> tokens = authService.reissue(refreshToken);
+
+        // 새 Access/Refresh 토큰을 쿠키로 재설정
+        ResponseCookie accessCookie = ResponseCookie.from("accessToken", tokens.get("accessToken"))
+                .httpOnly(true)
+                .secure(false)
+                .path("/")
+                .maxAge(60 * 60)
+                .sameSite("Strict")
+                .build();
+
+        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", tokens.get("refreshToken"))
+                .httpOnly(true)
+                .secure(false)
+                .path("/")
+                .maxAge(60 * 60 * 6)
+                .sameSite("Strict")
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, accessCookie.toString());
+        response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
+
+        return ResponseEntity.ok(
+                new ResponseDto<>(
+                        HttpStatus.OK.value(),
+                        "토큰 재발급 성공.",
+                        Map.of("accessToken", tokens.get("accessToken"))
+                )
+        );      }
 }

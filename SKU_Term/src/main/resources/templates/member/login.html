@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>로그인 - 수강신청 시스템</title>
+    <link rel="stylesheet"
+          th:href="@{/css/member.css}"
+          href="/css/member.css">
+</head>
+<body>
+<div class="auth-container">
+    <h1>수강신청 시스템</h1>
+    <h2>로그인</h2>
+
+    <form id="login-form">
+        <div class="form-group">
+            <label for="login-studentNumber">학번</label>
+            <input type="text" id="login-studentNumber" placeholder="예: 202312345" required>
+        </div>
+
+        <div class="form-group">
+            <label for="login-password">비밀번호</label>
+            <input type="password" id="login-password" required>
+        </div>
+
+        <button type="submit" class="primary-btn">로그인</button>
+    </form>
+
+    <div id="login-message" class="message"></div>
+
+    <div class="link-row">
+        계정이 없으신가요?
+        <a th:href="@{/member/signup}" href="/member/signup">회원가입</a>
+    </div>
+</div>
+
+<script th:src="@{/js/member.js}" src="/js/member.js"></script>
+<script>
+    window.AUTH_PAGE = 'LOGIN';
+</script>
+</body>
+</html>

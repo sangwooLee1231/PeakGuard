@@ -1,5 +1,6 @@
 package com.sku.common.handler;
-import com.sku.common.dto.ErrorResponse;
+
+import com.sku.common.dto.ResponseDto;
 import com.sku.common.exception.CustomException;
 import com.sku.common.util.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,86 +12,125 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+import java.util.Map;
+import java.util.stream.Collectors;
+
+/**
+ * 전역 예외 처리 핸들러
+ * 모든 예외 응답을 {status, message, data} 형식의 ResponseDto로 내려준다.
+ */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     /**
-     * @Valid / @Validated 가 붙은 객체 바인딩 실패 시 발생 (@RequestBody 등)
-     */
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    protected ResponseEntity<ErrorResponse> handleMethodArgumentNotValidException(
-            MethodArgumentNotValidException e,
-            HttpServletRequest request
-    ) {
-        log.error("handleMethodArgumentNotValidException", e);
-
-        // 첫 번째 필드 에러만 메시지로 사용 (필요하면 더 자세히 바꿔도 됨)
-        String message = e.getBindingResult()
-                .getFieldErrors()
-                .stream()
-                .findFirst()
-                .map(error -> error.getField() + " : " + error.getDefaultMessage())
-                .orElse(ErrorCode.INVALID_INPUT_VALUE.getMsg());
-
-        ErrorResponse response =
-                ErrorResponse.of(ErrorCode.INVALID_INPUT_VALUE, request.getRequestURI(), message);
-
-        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
-    }
-
-    /**
-     * @RequestParam, @PathVariable 등에서 타입이 맞지 않을 때 발생
-     * (예: enum 파라미터에 이상한 값이 들어온 경우)
-     */
-    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    protected ResponseEntity<ErrorResponse> handleMethodArgumentTypeMismatchException(
-            MethodArgumentTypeMismatchException e,
-            HttpServletRequest request
-    ) {
-        log.error("handleMethodArgumentTypeMismatchException", e);
-
-        ErrorResponse response =
-                ErrorResponse.of(ErrorCode.INVALID_TYPE_VALUE, request.getRequestURI());
-
-        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
-    }
-
-    /**
-     * 비즈니스 로직에서 직접 던지는 CustomException 처리
+     * 비즈니스 예외(CustomException) 처리
      */
     @ExceptionHandler(CustomException.class)
-    protected ResponseEntity<ErrorResponse> handleBusinessException(
+    protected ResponseEntity<ResponseDto<Map<String, Object>>> handleCustomException(
             CustomException e,
             HttpServletRequest request
     ) {
-        log.error("handleBusinessException", e);
-
         ErrorCode errorCode = e.getErrorCode();
+        HttpStatus status = HttpStatus.valueOf(errorCode.getStatus());
 
-        // e.getMessage() 로 상세 메시지를 덮어쓰고 싶을 때
-        ErrorResponse response =
-                ErrorResponse.of(errorCode, request.getRequestURI(), e.getMessage());
+        log.warn("CustomException: code={}, msg={}, path={}",
+                errorCode.getCode(), errorCode.getMsg(), request.getRequestURI());
 
-        return new ResponseEntity<>(
-                response,
-                HttpStatus.valueOf(errorCode.getStatus())
+        Map<String, Object> data = Map.of(
+                "code", errorCode.getCode(),
+                "path", request.getRequestURI()
         );
+
+        ResponseDto<Map<String, Object>> body =
+                new ResponseDto<>(status.value(), errorCode.getMsg(), data);
+
+        return ResponseEntity.status(status).body(body);
     }
 
     /**
-     * 그 밖의 예상하지 못한 모든 예외 처리
+     * @Valid, @Validated 바인딩 에러 처리
      */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    protected ResponseEntity<ResponseDto<Map<String, Object>>> handleMethodArgumentNotValidException(
+            MethodArgumentNotValidException e,
+            HttpServletRequest request
+    ) {
+        ErrorCode errorCode = ErrorCode.INVALID_INPUT_VALUE;
+        HttpStatus status = HttpStatus.valueOf(errorCode.getStatus());
+
+        log.warn("MethodArgumentNotValidException: path={}, message={}",
+                request.getRequestURI(), e.getMessage());
+
+        // 필드별 에러 메시지 맵으로 변환
+        Map<String, String> fieldErrors = e.getBindingResult().getFieldErrors().stream()
+                .collect(Collectors.toMap(
+                        fieldError -> fieldError.getField(),
+                        fieldError -> fieldError.getDefaultMessage(),
+                        (msg1, msg2) -> msg1   // 같은 필드가 여러 번 나올 때 첫 번째 메시지 사용
+                ));
+
+        Map<String, Object> data = Map.of(
+                "code", errorCode.getCode(),
+                "path", request.getRequestURI(),
+                "errors", fieldErrors
+        );
+
+        ResponseDto<Map<String, Object>> body =
+                new ResponseDto<>(status.value(), errorCode.getMsg(), data);
+
+        return ResponseEntity.status(status).body(body);
+    }
+
+    /**
+     * 타입 변환 에러 처리
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    protected ResponseEntity<ResponseDto<Map<String, Object>>> handleMethodArgumentTypeMismatchException(
+            MethodArgumentTypeMismatchException e,
+            HttpServletRequest request
+    ) {
+        ErrorCode errorCode = ErrorCode.INVALID_TYPE_VALUE;
+        HttpStatus status = HttpStatus.valueOf(errorCode.getStatus());
+
+        log.warn("MethodArgumentTypeMismatchException: path={}, message={}",
+                request.getRequestURI(), e.getMessage());
+
+        Map<String, Object> data = Map.of(
+                "code", errorCode.getCode(),
+                "path", request.getRequestURI(),
+                "name", e.getName(),          // 파라미터 이름
+                "value", String.valueOf(e.getValue()) // 잘못 들어온 값
+        );
+
+        ResponseDto<Map<String, Object>> body =
+                new ResponseDto<>(status.value(), errorCode.getMsg(), data);
+
+        return ResponseEntity.status(status).body(body);
+    }
+
+    /**
+     * 처리하지 못한 모든 예외에 대한 fallback 처리
+     */
+
     @ExceptionHandler(Exception.class)
-    protected ResponseEntity<ErrorResponse> handleException(
+    protected ResponseEntity<ResponseDto<Map<String, Object>>> handleException(
             Exception e,
             HttpServletRequest request
     ) {
-        log.error("handleException", e);
+        ErrorCode errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
+        HttpStatus status = HttpStatus.valueOf(errorCode.getStatus());
 
-        ErrorResponse response =
-                ErrorResponse.of(ErrorCode.INTERNAL_SERVER_ERROR, request.getRequestURI());
+        log.error("Unhandled Exception at path={}", request.getRequestURI(), e);
 
-        return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        Map<String, Object> data = Map.of(
+                "code", errorCode.getCode(),
+                "path", request.getRequestURI()
+        );
+
+        ResponseDto<Map<String, Object>> body =
+                new ResponseDto<>(status.value(), errorCode.getMsg(), data);
+
+        return ResponseEntity.status(status).body(body);
     }
 }

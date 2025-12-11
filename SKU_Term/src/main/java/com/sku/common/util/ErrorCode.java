@@ -22,6 +22,8 @@ public enum ErrorCode {
     LOGIN_REQUIRED(401, "AU003", "로그인이 필요한 서비스입니다."),
     SESSION_EXPIRED(401, "AU004", "세션이 만료되었습니다. 다시 로그인해주세요."),
     UNAUTHORIZED_ACCESS(403, "AU005", "해당 기능에 대한 접근 권한이 없습니다."),
+    DUPLICATE_STUDENT_NUMBER(409, "AU006", "이미 가입된 학번입니다."),
+    STUDENT_SAVE_FAILED(500, "AU007", "회원가입 처리 중 오류가 발생했습니다."),
 
     // =================================== 강의/시간표 에러 (Lecture) ===================================
     LECTURE_NOT_FOUND(404, "LC001", "해당 강의를 찾을 수 없습니다."),

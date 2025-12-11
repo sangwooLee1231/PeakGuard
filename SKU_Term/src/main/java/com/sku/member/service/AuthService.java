@@ -4,4 +4,7 @@ import java.util.Map;
 
 public interface AuthService {
     Map<String, String> login(String email, String password);
+
+    Map<String, String> reissue(String refreshToken);
+
 }

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>회원가입 - 수강신청 시스템</title>
+    <link rel="stylesheet" th:href="@{/css/member.css}">
+</head>
+<body>
+<div class="auth-container">
+    <h1>수강신청 시스템</h1>
+    <h2>회원가입</h2>
+
+    <form id="signup-form">
+        <div class="form-group">
+            <label for="signup-studentNumber">학번</label>
+            <input type="text" id="signup-studentNumber" placeholder="예: 202312345" required>
+        </div>
+
+        <div class="form-group">
+            <label for="signup-password">비밀번호</label>
+            <input type="password" id="signup-password" placeholder="최소 8자" required>
+        </div>
+
+        <div class="form-group">
+            <label for="signup-name">이름</label>
+            <input type="text" id="signup-name" placeholder="홍길동" required>
+        </div>
+
+        <div class="form-group">
+            <label for="signup-department">학과</label>
+            <input type="text" id="signup-department" placeholder="소프트웨어학과">
+        </div>
+
+        <div class="form-group">
+            <label for="signup-grade">학년</label>
+            <input type="number" id="signup-grade" placeholder="1">
+        </div>
+
+        <button type="submit" class="primary-btn">회원가입</button>
+    </form>
+
+    <div id="signup-message" class="message"></div>
+
+    <div class="link-row">
+        이미 계정이 있으신가요?
+        <a th:href="@{/member/login}" href="/member/login">로그인</a>
+    </div>
+</div>
+
+<script th:src="@{/js/member.js}" src="/js/member.js"></script>
+<script>
+    window.AUTH_PAGE = 'SIGNUP';
+</script>
+</body>
+</html>
