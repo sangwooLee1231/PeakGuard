@@ -29,6 +29,8 @@ public enum ErrorCode {
     LECTURE_NOT_FOUND(404, "LC001", "해당 강의를 찾을 수 없습니다."),
     LECTURE_SEARCH_FAILED(500, "LC002", "강의 목록 조회 중 오류가 발생했습니다."),
     TIMETABLE_LOAD_FAILED(500, "LC003", "시간표를 불러오는 중 오류가 발생했습니다."),
+    LECTURE_INVALID_FILTER(400, "LC004", "유효하지 않은 강의 검색/필터 조건입니다."),
+
 
     // =================================== 수강신청 에러 (Enrollment) ===================================
     ENROLLMENT_CAPACITY_FULL(409, "EN001", "정원이 초과되었습니다."),

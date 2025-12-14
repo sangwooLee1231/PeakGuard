@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.sku.lecture.mapper.LectureMapper">
+
+    <!-- 강의 목록 + 검색/필터 -->
+    <select id="findLectures" parameterType="com.sku.lecture.dto.LectureSearchCondition"
+            resultType="com.sku.lecture.vo.Lecture">
+        SELECT DISTINCT
+        L.LECTURE_ID            AS id,
+        L.LECTURE_COURSE_NAME   AS courseName,
+        L.LECTURE_PROFESSOR     AS professor,
+        L.LECTURE_CREDIT        AS credit,
+        L.LECTURE_MAX_CAPACITY  AS maxCapacity,
+        L.LECTURE_CURRENT_COUNT AS currentCount,
+        L.LECTURE_DIVISION      AS division,
+        L.LECTURE_ROOM          AS room
+        FROM Lecture L
+        LEFT JOIN Lecturetime LT
+        ON L.LECTURE_ID = LT.LECTURETIME_LECTURE_ID
+        WHERE 1 = 1
+        <!-- 검색 -->
+        <if test="cond.courseName != null and cond.courseName != ''">
+            AND L.LECTURE_COURSE_NAME LIKE CONCAT('%', #{cond.courseName}, '%')
+        </if>
+
+        <if test="cond.professor != null and cond.professor != ''">
+            AND L.LECTURE_PROFESSOR LIKE CONCAT('%', #{cond.professor}, '%')
+        </if>
+
+        <if test="cond.division != null and cond.division != ''">
+            AND L.LECTURE_DIVISION = #{cond.division}
+        </if>
+
+        <!-- 필터 -->
+        <if test="cond.dayOfWeek != null and cond.dayOfWeek != ''">
+            AND LT.LECTURETIME_DAY_OF_WEEK = #{cond.dayOfWeek}
+        </if>
+
+        <if test="cond.startTime != null">
+            AND LT.LECTURETIME_START_TIME &gt;= #{cond.startTime}
+        </if>
+
+        <if test="cond.endTime != null">
+            AND LT.LECTURETIME_END_TIME &lt;= #{cond.endTime}
+        </if>
+
+        <if test="cond.credit != null">
+            AND L.LECTURE_CREDIT = #{cond.credit}
+        </if>
+
+        ORDER BY
+        L.LECTURE_COURSE_NAME ASC,
+        L.LECTURE_PROFESSOR ASC
+    </select>
+
+    <!-- 강의 단건 조회 -->
+    <select id="findById" parameterType="long"
+            resultType="com.sku.lecture.vo.Lecture">
+        SELECT
+            LECTURE_ID            AS id,
+            LECTURE_COURSE_NAME   AS courseName,
+            LECTURE_PROFESSOR     AS professor,
+            LECTURE_CREDIT        AS credit,
+            LECTURE_MAX_CAPACITY  AS maxCapacity,
+            LECTURE_CURRENT_COUNT AS currentCount,
+            LECTURE_DIVISION      AS division,
+            LECTURE_ROOM          AS room
+        FROM Lecture
+        WHERE LECTURE_ID = #{lectureId}
+    </select>
+
+    <!-- 강의 시간 목록 조회 -->
+    <select id="findTimesByLectureId" parameterType="long"
+            resultType="com.sku.lecture.vo.LectureTime">
+        SELECT
+            LECTURETIME_ID          AS id,
+            LECTURETIME_LECTURE_ID  AS lectureId,
+            LECTURETIME_DAY_OF_WEEK AS dayOfWeek,
+            LECTURETIME_START_TIME  AS startTime,
+            LECTURETIME_END_TIME    AS endTime
+        FROM Lecturetime
+        WHERE LECTURETIME_LECTURE_ID = #{lectureId}
+        ORDER BY
+            FIELD(LECTURETIME_DAY_OF_WEEK, 'MON','TUE','WED','THU','FRI','SAT','SUN'),
+            LECTURETIME_START_TIME ASC
+    </select>
+
+</mapper>
