@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.sku.timetable.mapper.TimetableMapper">
+
+    <!--
+        F-401 개인 시간표 조회 (주간)
+        Enrollment + Lecture + Lecturetime JOIN
+     -->
+    <select id="findWeeklyTimetable"
+            parameterType="long"
+            resultType="com.sku.timetable.vo.TimetableSlot">
+        SELECT
+            L.LECTURE_ID              AS lectureId,
+            L.LECTURE_COURSE_NAME     AS courseName,
+            L.LECTURE_PROFESSOR       AS professor,
+            L.LECTURE_CREDIT          AS credit,
+            L.LECTURE_DIVISION        AS division,
+            L.LECTURE_ROOM            AS room,
+            LT.LECTURETIME_DAY_OF_WEEK AS dayOfWeek,
+            LT.LECTURETIME_START_TIME  AS startTime,
+            LT.LECTURETIME_END_TIME    AS endTime
+        FROM Enrollment E
+                 JOIN Lecture L
+                      ON E.ENROLLMENT_LECTURE_ID = L.LECTURE_ID
+                 JOIN Lecturetime LT
+                      ON L.LECTURE_ID = LT.LECTURETIME_LECTURE_ID
+        WHERE E.ENROLLMENT_STUDENT_ID = #{studentId}
+        ORDER BY
+            FIELD(LT.LECTURETIME_DAY_OF_WEEK, 'MON','TUE','WED','THU','FRI','SAT','SUN'),
+            LT.LECTURETIME_START_TIME ASC
+    </select>
+
+</mapper>

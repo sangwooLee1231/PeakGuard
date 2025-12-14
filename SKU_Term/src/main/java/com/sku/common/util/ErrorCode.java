@@ -45,7 +45,14 @@ public enum ErrorCode {
     CART_ALREADY_EXISTS(409, "CT001", "이미 장바구니에 담긴 강의입니다."),
     CART_NOT_FOUND(404, "CT002", "장바구니에서 해당 강의를 찾을 수 없습니다."),
     CART_INSERT_FAILED(500, "CT003", "장바구니 담기 중 오류가 발생했습니다."),
-    CART_DELETE_FAILED(500, "CT004", "장바구니 삭제 중 오류가 발생했습니다.");
+    CART_DELETE_FAILED(500, "CT004", "장바구니 삭제 중 오류가 발생했습니다."),
+
+    // =================================== 대기열 / 트래픽 제어 (Queue) ===================================
+    QUEUE_TOKEN_INVALID(400, "Q001", "유효하지 않은 대기열 토큰입니다."),
+    QUEUE_TOKEN_NOT_FOUND(404, "Q002", "대기열 정보를 찾을 수 없습니다."),
+    QUEUE_NOT_ACTIVE(403, "Q003", "아직 수강신청 가능 순번이 아닙니다."),
+    QUEUE_SERVICE_UNAVAILABLE(503, "Q004", "현재 대기열 서비스가 원활하지 않습니다.");
+
 
     private final int status;
     private final String code;

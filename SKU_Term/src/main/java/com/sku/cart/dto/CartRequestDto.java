@@ -1,4 +1,4 @@
-package com.sku.enrollment.dto;
+package com.sku.cart.dto;
 
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
@@ -8,7 +8,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class EnrollmentRequestDto {
+public class CartRequestDto {
 
     @NotNull(message = "강의 ID는 필수 값입니다.")
     private Long lectureId;
