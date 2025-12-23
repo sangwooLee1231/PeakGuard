@@ -24,8 +24,6 @@ public class CartController {
 
     private final CartService cartService;
 
-    //test
-
     /**
      * 장바구니 담기
      */
