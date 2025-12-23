@@ -36,56 +36,47 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     @Transactional(rollbackFor = Exception.class)
     public void enroll(String studentNumber, Long lectureId) {
 
-        if (lectureId == null || lectureId <= 0) {
-            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
-        }
 
-        // 1학생 조회
         Student student = studentMapper.findByStudentNumber(studentNumber);
         if (student == null) {
             throw new CustomException(ErrorCode.STUDENT_NOT_FOUND);
         }
         Long studentId = student.getId();
 
-        // 2강의 조회
-        Lecture lecture = lectureMapper.findById(lectureId);
+        Lecture lecture = enrollmentMapper.findLectureWithLock(lectureId);
         if (lecture == null) {
             throw new CustomException(ErrorCode.LECTURE_NOT_FOUND);
         }
 
-        // 3이미 신청한 강의인지 확인
         int exists = enrollmentMapper.existsEnrollment(studentId, lectureId);
         if (exists > 0) {
             throw new CustomException(ErrorCode.ALREADY_ENROLLED);
         }
 
-        // 4최대 학점 체크
         int currentCredits = enrollmentMapper.sumCreditsByStudent(studentId);
         int totalAfterEnroll = currentCredits + (lecture.getCredit() != null ? lecture.getCredit() : 0);
         if (totalAfterEnroll > MAX_CREDIT) {
             throw new CustomException(ErrorCode.CREDIT_EXCEEDED);
         }
 
-        // 5시간표 중복 체크
+        if (lecture.getCurrentCount() >= lecture.getMaxCapacity()) {
+            throw new CustomException(ErrorCode.ENROLLMENT_CAPACITY_FULL);
+        }
+
         List<LectureTime> enrolledTimes = enrollmentMapper.findEnrolledLectureTimes(studentId);
         List<LectureTime> newLectureTimes = lectureMapper.findTimesByLectureId(lectureId);
-
         if (hasTimeConflict(enrolledTimes, newLectureTimes)) {
             throw new CustomException(ErrorCode.TIME_CONFLICT);
         }
 
-        // 정원 체크 (실시간)
-        int updatedRows = enrollmentMapper.increaseCurrentCountIfNotFull(lectureId);
-        if (updatedRows == 0) {
-            throw new CustomException(ErrorCode.ENROLLMENT_CAPACITY_FULL);
-        }
+        enrollmentMapper.increaseCurrentCount(lectureId);
 
         int inserted = enrollmentMapper.insertEnrollment(studentId, lectureId);
         if (inserted == 0) {
             throw new CustomException(ErrorCode.ENROLLMENT_FAILED);
         }
 
-        log.info("수강신청 완료 - studentId={}, lectureId={}", studentId, lectureId);
+        log.info("수강신청 완료(Pessimistic Lock) - studentId={}, lectureId={}", studentId, lectureId);
     }
 
     /**

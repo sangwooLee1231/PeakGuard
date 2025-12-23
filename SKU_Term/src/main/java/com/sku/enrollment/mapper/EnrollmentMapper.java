@@ -1,6 +1,7 @@
 package com.sku.enrollment.mapper;
 
 import com.sku.enrollment.dto.EnrollmentListResponseDto;
+import com.sku.lecture.vo.Lecture;
 import com.sku.lecture.vo.LectureTime;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -25,6 +26,8 @@ public interface EnrollmentMapper {
     // 현재 신청 학점 합계
     int sumCreditsByStudent(@Param("studentId") Long studentId);
 
+    int increaseCurrentCount(@Param("lectureId") Long lectureId);
+
     // 해당 학생이 신청한 모든 강의의 시간 정보
     List<LectureTime> findEnrolledLectureTimes(@Param("studentId") Long studentId);
 
@@ -32,8 +35,7 @@ public interface EnrollmentMapper {
     List<EnrollmentListResponseDto> findMyEnrollments(@Param("studentId") Long studentId);
 
     // 정원 증가
-    int increaseCurrentCountIfNotFull(@Param("lectureId") Long lectureId);
-
+    Lecture findLectureWithLock(@Param("lectureId") Long lectureId);
     // 정원 감소
     int decreaseCurrentCount(@Param("lectureId") Long lectureId);
 }

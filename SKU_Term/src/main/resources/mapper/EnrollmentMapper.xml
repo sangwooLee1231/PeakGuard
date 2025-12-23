@@ -76,12 +76,10 @@
         ORDER BY E.ENROLLMENT_CREATED_AT DESC
     </select>
 
-    <!-- 실시간 정원 체크 + 1 증가 -->
-    <update id="increaseCurrentCountIfNotFull">
+    <update id="increaseCurrentCount">
         UPDATE Lecture
         SET LECTURE_CURRENT_COUNT = LECTURE_CURRENT_COUNT + 1
         WHERE LECTURE_ID = #{lectureId}
-          AND LECTURE_CURRENT_COUNT &lt; LECTURE_MAX_CAPACITY
     </update>
 
     <!-- 수강 취소 시 정원 -1 -->
@@ -91,5 +89,18 @@
         WHERE LECTURE_ID = #{lectureId}
           AND LECTURE_CURRENT_COUNT > 0
     </update>
+
+    <select id="findLectureWithLock" resultType="com.sku.lecture.vo.Lecture">
+        SELECT
+            LECTURE_ID AS id,
+            LECTURE_MAX_CAPACITY AS maxCapacity,
+            LECTURE_CURRENT_COUNT AS currentCount,
+            LECTURE_CREDIT AS credit
+        FROM Lecture
+        WHERE LECTURE_ID = #{lectureId}
+            FOR UPDATE
+    </select>
+
+
 
 </mapper>
