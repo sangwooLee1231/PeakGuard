@@ -38,3 +38,4 @@ out/
 
 application.yml
 build.gradle
+application-prod.yml
