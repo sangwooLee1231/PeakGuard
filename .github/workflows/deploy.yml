@@ -40,16 +40,6 @@ jobs:
             --overwrite true \
             --auth-mode login
 
-          # deploy.sh도 함께 업로드 (이미 올려뒀으면 이 스텝은 생략 가능)
-          az storage blob upload \
-            --account-name "${{ secrets.ST_ACCOUNT }}" \
-            --container-name "${{ secrets.ST_CONTAINER }}" \
-            --name "deploy.sh" \
-            --file "deploy.sh" \
-            --overwrite true \
-            --auth-mode login
-
-          echo "BLOB_JAR=$BLOB_JAR" >> $GITHUB_ENV
 
       - name: Generate SAS (short-lived)
         shell: bash
