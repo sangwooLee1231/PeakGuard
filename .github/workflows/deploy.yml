@@ -17,7 +17,6 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-
       - name: Build (Gradle)
         working-directory: ./SKU_Term
         run: |
@@ -29,15 +28,16 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-
       - name: Upload artifacts to Blob
         shell: bash
         run: |
           set -euo pipefail
+
           JAR_PATH=$(ls SKU_Term/build/libs/*.jar | head -n 1)
           SHA=${GITHUB_SHA::7}
           BLOB_JAR="app-${SHA}.jar"
-          echo "BLOB_JAR=$BLOB_JAR" >> $GITHUB_ENV
+
+          echo "BLOB_JAR=$BLOB_JAR" >> "$GITHUB_ENV"
 
           az storage blob upload \
             --account-name "${{ secrets.ST_ACCOUNT }}" \
@@ -47,17 +47,17 @@ jobs:
             --overwrite true \
             --auth-mode login
 
-
       - name: Generate SAS (short-lived)
         shell: bash
         run: |
           set -euo pipefail
+
           EXPIRY=$(date -u -d "+1 hour" '+%Y-%m-%dT%H:%MZ')
 
           JAR_SAS=$(az storage blob generate-sas \
             --account-name "${{ secrets.ST_ACCOUNT }}" \
             --container-name "${{ secrets.ST_CONTAINER }}" \
-            --name "${{ env.BLOB_JAR }}" \
+            --name "$BLOB_JAR" \
             --permissions r \
             --expiry "$EXPIRY" \
             --https-only \
@@ -76,36 +76,32 @@ jobs:
             --auth-mode login \
             -o tsv)
 
-          echo "JAR_URL=https://${{ secrets.ST_ACCOUNT }}.blob.core.windows.net/${{ secrets.ST_CONTAINER }}/${{ env.BLOB_JAR }}?$JAR_SAS" >> $GITHUB_ENV
-          echo "DEPLOY_URL=https://${{ secrets.ST_ACCOUNT }}.blob.core.windows.net/${{ secrets.ST_CONTAINER }}/deploy.sh?$DEPLOY_SAS" >> $GITHUB_ENV
+          JAR_URL="https://${{ secrets.ST_ACCOUNT }}.blob.core.windows.net/${{ secrets.ST_CONTAINER }}/$BLOB_JAR?$JAR_SAS"
+          DEPLOY_URL="https://${{ secrets.ST_ACCOUNT }}.blob.core.windows.net/${{ secrets.ST_CONTAINER }}/deploy.sh?$DEPLOY_SAS"
+
+          echo "JAR_URL=$JAR_URL" >> "$GITHUB_ENV"
+          echo "DEPLOY_URL=$DEPLOY_URL" >> "$GITHUB_ENV"
 
       - name: Update VMSS CustomScript (Rolling)
         shell: bash
         run: |
           set -euo pipefail
-          RG="${{ secrets.RG_NAME }}"
-          VMSS="${{ secrets.VMSS_NAME }}"
 
-      - name: Update VMSS CustomScript (Rolling)
-        shell: bash
-        run: |
-          set -euo pipefail
           RG="${{ secrets.RG_NAME }}"
           VMSS="${{ secrets.VMSS_NAME }}"
 
           az vmss extension delete -g "$RG" --vmss-name "$VMSS" -n CustomScript || true
 
-          # settings: fileUris만
-          cat > settings.json <<'JSON'
+          # settings: fileUris만 (public)
+          cat > settings.json <<JSON
           {
-            "fileUris": ["${{ env.DEPLOY_URL }}"]
+            "fileUris": ["$DEPLOY_URL"]
           }
           JSON
 
-          # protectedSettings: commandToExecute만 (SAS URL이 노출되지 않게)
-          cat > protected.json <<'JSON'
+          cat > protected.json <<JSON
           {
-            "commandToExecute": "bash deploy.sh '${{ env.JAR_URL }}'"
+            "commandToExecute": "bash deploy.sh '$JAR_URL'"
           }
           JSON
 
@@ -123,8 +119,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           RG="${{ secrets.RG_NAME }}"
           VMSS="${{ secrets.VMSS_NAME }}"
+
           IDS=$(az vmss list-instances -g "$RG" -n "$VMSS" --query "[].instanceId" -o tsv | tr '\n' ' ')
           az vmss update-instances -g "$RG" -n "$VMSS" --instance-ids $IDS
-
