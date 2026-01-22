@@ -36,7 +36,6 @@ jobs:
           JAR_PATH=$(ls SKU_Term/build/libs/*.jar | head -n 1)
           SHA=${GITHUB_SHA::7}
           BLOB_JAR="app-${SHA}.jar"
-
           echo "BLOB_JAR=$BLOB_JAR" >> "$GITHUB_ENV"
 
           az storage blob upload \
@@ -82,7 +81,7 @@ jobs:
           echo "JAR_URL=$JAR_URL" >> "$GITHUB_ENV"
           echo "DEPLOY_URL=$DEPLOY_URL" >> "$GITHUB_ENV"
 
-      - name: Update VMSS CustomScript (Rolling)
+      - name: Reset + Set VMSS CustomScript (clean)
         shell: bash
         run: |
           set -euo pipefail
@@ -90,30 +89,62 @@ jobs:
           RG="${{ secrets.RG_NAME }}"
           VMSS="${{ secrets.VMSS_NAME }}"
 
-          az vmss extension delete -g "$RG" --vmss-name "$VMSS" -n CustomScript || true
+          az vmss extension list -g "$RG" --vmss-name "$VMSS" \
+            --query "[].{name:name,publisher:publisher,type:type,version:typeHandlerVersion}" \
+            -o table
 
-          # settings: fileUris만 (public)
+          EXT_NAMES=$(az vmss extension list -g "$RG" --vmss-name "$VMSS" \
+            --query "[?publisher=='Microsoft.Azure.Extensions' && type=='CustomScript'].name" \
+            -o tsv)
+
+          for n in $EXT_NAMES; do
+            echo "Deleting VMSS extension: $n"
+            az vmss extension delete -g "$RG" --vmss-name "$VMSS" -n "$n" || true
+          done
+
+          for i in {1..30}; do
+            LEFT=$(az vmss extension list -g "$RG" --vmss-name "$VMSS" \
+              --query "[?publisher=='Microsoft.Azure.Extensions' && type=='CustomScript'].name" \
+              -o tsv)
+            if [ -z "$LEFT" ]; then
+              echo "All CustomScript extensions removed."
+              break
+            fi
+            echo "Still present: $LEFT (retry $i)"
+            sleep 5
+          done
+
+          LEFT=$(az vmss extension list -g "$RG" --vmss-name "$VMSS" \
+            --query "[?publisher=='Microsoft.Azure.Extensions' && type=='CustomScript'].name" \
+            -o tsv)
+          if [ -n "$LEFT" ]; then
+            echo "ERROR: Could not remove CustomScript extensions: $LEFT"
+            exit 1
+          fi
+
           cat > settings.json <<JSON
-          {
-            "fileUris": ["$DEPLOY_URL"]
-          }
+          { "fileUris": ["$DEPLOY_URL"] }
           JSON
 
           cat > protected.json <<JSON
-          {
-            "commandToExecute": "bash deploy.sh '$JAR_URL'"
-          }
+          { "commandToExecute": "bash deploy.sh '$JAR_URL'" }
           JSON
 
           az vmss extension set \
-            --resource-group "$RG" \
-            --vmss-name "$VMSS" \
-            --name CustomScript \
+            -g "$RG" --vmss-name "$VMSS" \
+            -n DeployCSE \
             --publisher Microsoft.Azure.Extensions \
             --version 2.1 \
             --settings @settings.json \
             --protected-settings @protected.json \
             --force-update
+
+          HAS_PUBLIC=$(az vmss extension show -g "$RG" --vmss-name "$VMSS" -n DeployCSE \
+            --query "contains(keys(settings), 'commandToExecute')" -o tsv)
+          if [ "$HAS_PUBLIC" = "true" ]; then
+            echo "ERROR: commandToExecute is still in public settings. It must exist only in protectedSettings."
+            exit 1
+          fi
 
       - name: Apply to instances (Manual upgrade policy)
         shell: bash
