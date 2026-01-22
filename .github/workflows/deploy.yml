@@ -86,13 +86,37 @@ jobs:
           RG="${{ secrets.RG_NAME }}"
           VMSS="${{ secrets.VMSS_NAME }}"
 
+      - name: Update VMSS CustomScript (Rolling)
+        shell: bash
+        run: |
+          set -euo pipefail
+          RG="${{ secrets.RG_NAME }}"
+          VMSS="${{ secrets.VMSS_NAME }}"
+
+          az vmss extension delete -g "$RG" --vmss-name "$VMSS" -n CustomScript || true
+
+          # settings: fileUris만
+          cat > settings.json <<'JSON'
+          {
+            "fileUris": ["${{ env.DEPLOY_URL }}"]
+          }
+          JSON
+
+          # protectedSettings: commandToExecute만 (SAS URL이 노출되지 않게)
+          cat > protected.json <<'JSON'
+          {
+            "commandToExecute": "bash deploy.sh '${{ env.JAR_URL }}'"
+          }
+          JSON
+
           az vmss extension set \
             --resource-group "$RG" \
             --vmss-name "$VMSS" \
             --name CustomScript \
             --publisher Microsoft.Azure.Extensions \
             --version 2.1 \
-            --settings "{\"fileUris\":[\"${{ env.DEPLOY_URL }}\"],\"commandToExecute\":\"bash deploy.sh '${{ env.JAR_URL }}'\"}" \
+            --settings @settings.json \
+            --protected-settings @protected.json \
             --force-update
 
       - name: Apply to instances (Manual upgrade policy)
